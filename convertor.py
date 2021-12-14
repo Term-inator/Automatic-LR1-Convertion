@@ -108,7 +108,7 @@ def generateFirst() -> None:
 
 
 terminals = []
-n_terminals = []
+n_terminals = []  # nonterminals
 
 
 def initProductionRules() -> None:
@@ -176,7 +176,7 @@ def main():
     readProductionRules()
     # showProductionRules()
     generateFirst()
-    showFirst()
+    # showFirst()
 
 
 main()
