@@ -1,5 +1,6 @@
 import copy
 
+
 EPS = ''  # epsilon
 END = '$'  # end of a string
 
@@ -20,10 +21,13 @@ class ProductionRule:
         :param id: sequence number
         :param left: Symbol on the left side of ->
         :param right: Symbols on the right side of ->
+        A -> abB
+        left: A
+        right: abB
         """
-        self.id = id  # A -> abB
-        self.left = left  # A
-        self.right = right  # [a, b, B]
+        self.id = id
+        self.left = left
+        self.right = right
 
 
 symbols = set()
@@ -107,6 +111,14 @@ def generateFirst() -> None:
             break
 
 
+def firstOfSymbols(symbol_seq):
+    assert len(symbol_seq) > 0
+    for symbol in symbol_seq:
+        if symbol.is_terminal:
+            return symbol.val
+
+
+
 terminals = []
 n_terminals = []  # nonterminals
 
@@ -171,7 +183,77 @@ def readProductionRules(production_rule_file: str) -> None:
                 production_rules[left_symbol].add(production_rule)
 
 
+class LRProject:
+    def __init__(self):
+        pass
 
+    def initWithParams(self, left: Symbol, queue: list, out_queue: list, look_forward: Symbol):
+        self.left = left
+        self.queue = queue  # list of Symbol
+        self.out_queue = out_queue  # list of Symbol
+        self.look_forward = look_forward
+        if len(self.out_queue) == 0:
+            self.reduce = True  # a reduce project
+        else:
+            self.reduce = False
+
+    def initWithProductionRule(self, production_rule: ProductionRule, look_forward: Symbol):
+        """
+        transfer a production rule to a LRProject
+        A -> ·abB
+        left: A
+        queue: []
+        out_queue: abB
+        """
+        self.left = production_rule.left
+        self.queue = []
+        self.out_queue = production_rule.right
+        self.look_forward = look_forward
+        self.reduce = False  # not a reduce project
+
+    def nextSymbol(self):
+        try:
+            return self.out_queue[0]
+        except IndexError:
+            self.reduce = True
+            return None
+
+    def restSymbols(self):
+        try:
+            return self.out_queue[1:]
+        except IndexError:
+            return [EPS]
+
+
+class State:
+    def __init__(self, id: int):
+        self.id = id
+        self.items = set()
+        self.unchanged = True
+
+    def addItem(self, lr_project: LRProject) -> bool:
+        if lr_project in self.items:
+            self.unchanged = False
+        self.items.add(lr_project)
+        return self.unchanged
+
+
+def closure(state: State) -> None:
+    unchanged = True
+    while True:
+        for lr_project in state.items:
+            next_symbol = lr_project.nextSymbol()
+            if next_symbol is None:
+                continue
+            for production_rule in production_rules[next_symbol]:
+                new_lr_project = LRProject()
+                symbol_seq = copy.deepcopy(lr_project.restSymbols())
+                symbol_seq.append(lr_project.look_forward)
+                new_lr_project.initWithProductionRule(production_rule, firstOfSymbols(symbol_seq))
+                unchanged = state.addItem(new_lr_project)
+
+        if unchanged:
+            break
 
 
 def main():
