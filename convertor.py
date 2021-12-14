@@ -113,10 +113,30 @@ def generateFirst() -> None:
 
 def firstOfSymbols(symbol_seq):
     assert len(symbol_seq) > 0
+    res = set()
     for symbol in symbol_seq:
         if symbol.is_terminal:
-            return symbol.val
+            res.add(symbol.val)
+        elif haveDirectEmptyProductionRule(symbol):
+            res.add(EPS)
+        elif not symbol.is_terminal:
+            for production_rule in production_rules[symbol]:
+                all_EPS = True  # if forall i from 1 to k, first(Yi) contains epsilon, then add epsilon to first(X)
+                for right in production_rule.right:  # Yi
+                    first_right = copy.deepcopy(first[right])  # deepcopy first(Yi) as first_Yi
+                    try:
+                        first_right.remove(EPS)  # remove epsilon from first_Yi
+                    except KeyError:
+                        pass
+                    res = res | first_right
+                    if EPS not in first[right]:  # whether first(Yi) contains epsilon
+                        all_EPS = False
+                        break
 
+                if all_EPS:
+                    res.add(EPS)
+
+    return res
 
 
 terminals = []
