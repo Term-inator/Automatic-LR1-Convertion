@@ -7,7 +7,7 @@ stmts -> stmt stmts | EPS
 ifstmt -> if ( boolexpr ) then stmt else stmt
 assgstmt -> ID = arithexpr ;
 boolexpr -> arithexpr boolop arithexpr
-boolop -> < | > | <= | >= | ==
+boolop -> < | > | < = | > = | = =
 arithexpr -> multexpr arithexprprime
 arithexprprime -> + multexpr arithexprprime | - multexpr arithexprprime | EPS
 multexpr -> simpleexpr multexprprime
