@@ -1,0 +1,15 @@
+program -> decls compoundstmt
+decls -> decl ; decls | EPS
+decl -> int ID = INTNUM | real ID = REALNUM
+stmt -> ifstmt | assgstmt | compoundstmt
+compoundstmt -> { stmts }
+stmts -> stmt stmts | EPS
+ifstmt -> if ( boolexpr ) then stmt else stmt
+assgstmt -> ID = arithexpr ;
+boolexpr -> arithexpr boolop arithexpr
+boolop -> < | > | <= | >= | ==
+arithexpr -> multexpr arithexprprime
+arithexprprime -> + multexpr arithexprprime | - multexpr arithexprprime | EPS
+multexpr -> simpleexpr multexprprime
+multexprprime -> * simpleexpr multexprprime | / simpleexpr multexprprime | EPS
+simpleexpr -> ID | INTNUM | REALNUM | ( arithexpr )
