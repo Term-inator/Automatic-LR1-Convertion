@@ -171,12 +171,15 @@ def readProductionRules() -> None:
                 production_rules[left_symbol].add(production_rule)
 
 
+
+
+
 def main():
     readSymbols()
     readProductionRules()
     # showProductionRules()
     generateFirst()
-    # showFirst()
+    showFirst()
 
 
 main()

@@ -1,4 +1,5 @@
-program -> decls compoundstmt
+program -> program'
+program' -> decls compoundstmt
 decls -> decl ; decls | EPS
 decl -> int ID = INTNUM | real ID = REALNUM
 stmt -> ifstmt | assgstmt | compoundstmt
