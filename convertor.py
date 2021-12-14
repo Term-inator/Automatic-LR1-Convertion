@@ -132,13 +132,13 @@ def showProductionRules() -> None:
         print()
 
 
-def readSymbols() -> None:
+def readSymbols(terminal_file: str, n_terminal_file: str) -> None:
     global terminals, n_terminals
-    with open('terminals.txt') as f:
+    with open(terminal_file) as f:
         for line in f.readlines():
             terminals = line.strip().split(' ')
 
-    with open('n_terminals.txt') as f:
+    with open(n_terminal_file) as f:
         for line in f.readlines():
             n_terminals = line.strip().split(' ')
 
@@ -150,10 +150,10 @@ def readSymbols() -> None:
         symbols.add(Symbol(n_terminal, False))
 
 
-def readProductionRules() -> None:
+def readProductionRules(production_rule_file: str) -> None:
     initProductionRules()
 
-    with open('production_rules.txt') as f:
+    with open(production_rule_file) as f:
         for i, line in enumerate(f.readlines()):
             left, rights = line.strip().split('->')
             left = left.strip()
@@ -175,8 +175,9 @@ def readProductionRules() -> None:
 
 
 def main():
-    readSymbols()
-    readProductionRules()
+    # expand your CFG and update n_terminals.txt and production_rules.txt first
+    readSymbols('terminals.txt', 'n_terminals.txt')
+    readProductionRules('production_rules.txt')
     # showProductionRules()
     generateFirst()
     showFirst()
