@@ -110,6 +110,10 @@ def generateFirst() -> None:
 def firstOfSymbols(symbol_seq):
     assert len(symbol_seq) > 0
     res = set()
+    if symbol_seq[0] == END:
+        res.add(END)
+        return res
+
     all_EPS = True
     for symbol in symbol_seq:
         if symbol == END:
@@ -298,6 +302,7 @@ class LRProject:
             print(r, end=' ')
         print(self.equivalence, end=' ')
         print(self.goto, end=' ')
+        print(self.look_forward, end=' ')
         print(end, end='')
 
 
@@ -344,13 +349,9 @@ class State:
     def __init__(self, id: int):
         self.id = id
         self.lr_projects = set()
-        self.unchanged = True
 
     def addItem(self, lr_project: LRProject) -> bool:
-        if lr_project in self.lr_projects:
-            self.unchanged = False
         self.lr_projects.add(lr_project)
-        return self.unchanged
 
     def __hash__(self):
         return self.id
@@ -359,7 +360,7 @@ class State:
         return self.id == other.id
 
     def show(self, end):
-        print(self.id, end=' ')
+        print('I%d' % self.id)
         for lr_project in self.lr_projects:
             lr_project.show('\n')
         print(end)
@@ -388,7 +389,7 @@ def getLRProjectByProductionRuleId(id: int):
     raise Exception
 
 
-def closure(state: State) -> None:
+def closure(state: State) -> State:
     while True:
         item_tmp = set()
         unchanged = True
@@ -397,11 +398,20 @@ def closure(state: State) -> None:
                 equivalent_lr_project = getLRProjectById(id)
                 symbol_seq = copy.deepcopy(lr_project.restSymbols())
                 symbol_seq.append(lr_project.look_forward)
-                equivalent_lr_project.look_forward = firstOfSymbols(symbol_seq)
+                first_set = firstOfSymbols(symbol_seq)
+                if len(first_set) != 0:
+                    lr_project.show('\n')
+                    print(symbol_seq, first_set)
+                assert len(first_set) == 1
+                for f in first_set:
+                    new_look_forward = f
+                equivalent_lr_project.look_forward = new_look_forward
                 item_tmp.add(equivalent_lr_project)
 
         for item in item_tmp:
-            unchanged = state.addItem(item)
+            if item not in state.lr_projects:
+                unchanged = False
+            state.addItem(item)
 
         if unchanged:
             break
