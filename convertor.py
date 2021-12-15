@@ -287,10 +287,10 @@ class LRProject:
             self.reduce = True
 
     def __hash__(self):
-        return self.id
+        return hash(self.id) + hash(self.look_forward)
 
     def __eq__(self, other):
-        return self.id == other.id
+        return self.id == other.id and self.look_forward == other.look_forward
 
     def show(self, end: str):
         print(self.id, end=' ')
@@ -300,9 +300,9 @@ class LRProject:
         print('·', end=' ')
         for r in self.out_queue:
             print(r, end=' ')
+        print(self.look_forward, end=' ')
         print(self.equivalence, end=' ')
         print(self.goto, end=' ')
-        print(self.look_forward, end=' ')
         print(end, end='')
 
 
@@ -399,14 +399,11 @@ def closure(state: State) -> State:
                 symbol_seq = copy.deepcopy(lr_project.restSymbols())
                 symbol_seq.append(lr_project.look_forward)
                 first_set = firstOfSymbols(symbol_seq)
-                if len(first_set) != 0:
-                    lr_project.show('\n')
-                    print(symbol_seq, first_set)
-                assert len(first_set) == 1
-                for f in first_set:
-                    new_look_forward = f
-                equivalent_lr_project.look_forward = new_look_forward
-                item_tmp.add(equivalent_lr_project)
+
+                # TODO hash conflict !!!
+                for new_look_forward in first_set:
+                    equivalent_lr_project.look_forward = new_look_forward
+                    item_tmp.add(copy.deepcopy(equivalent_lr_project))
 
         for item in item_tmp:
             if item not in state.lr_projects:
@@ -450,7 +447,7 @@ def items():
         unchanged = True
         new_states = set()
         for state in state_set:
-            state.show('\n')
+            # state.show('\n')
             for symbol in symbols:
                 # print(symbol, end=' ')
                 # state.show('\n')
@@ -466,6 +463,7 @@ def items():
                     for s in state_set:
                         if identicalState(new_state, s):
                             contain = True
+                            id -= 1
                             break
                     if not contain:
                         new_states.add(new_state)
@@ -483,6 +481,11 @@ def showSymbols():
     print()
 
 
+def showStates():
+    for state in state_set:
+        state.show('\n')
+
+
 def main():
     # expand your CFG and update n_terminals.txt and production_rules.txt first
     # and make sure that the first rule is the start rule
@@ -497,6 +500,7 @@ def main():
     # showLRProjects()
     items()
     print(len(state_set))
+    showStates()
 
 
 main()
