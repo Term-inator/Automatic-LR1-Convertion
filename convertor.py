@@ -5,22 +5,12 @@ EPS = ''  # epsilon
 END = '$'  # end of a string
 
 
-class Symbol:
-    def __init__(self, val: str, is_terminal: bool):
-        """
-        :param val: value(terminal) or name(not terminal)
-        :param is_terminal: True if is a terminal
-        """
-        self.val = val
-        self.is_terminal = is_terminal
-
-
 class ProductionRule:
-    def __init__(self, id: int, left: Symbol, right: list):  # id, Symbol, list of Symbols
+    def __init__(self, id: int, left: str, right: list):  # id, str, list of str
         """
         :param id: sequence number
-        :param left: Symbol on the left side of ->
-        :param right: Symbols on the right side of ->
+        :param left: str on the left side of ->
+        :param right: str on the right side of ->
         A -> abB
         left: A
         right: abB
@@ -31,23 +21,15 @@ class ProductionRule:
 
 
 symbols = set()
-production_rules = dict()  # Symbol -> set of ProductionRule
-first = dict()  # Symbol -> set of Symbols
+production_rules = dict()  # str -> set of ProductionRule
+first = dict()  # str -> set of str
 
 
-def getSymbol(val: str) -> Symbol:
-    for symbol in symbols:
-        if symbol.val == val:
-            return symbol
-    print(val + ' not found')
-    raise Exception
-
-
-def haveDirectEmptyProductionRule(x: Symbol) -> bool:
+def haveDirectEmptyProductionRule(x: str) -> bool:
     """
     whether x has a production rule x -> epsilon
     """
-    assert not x.is_terminal
+    assert x in n_terminals
     x_production_rule_set = production_rules[x]
     for x_production_rule in x_production_rule_set:
         if x_production_rule.right == [EPS]:
@@ -62,9 +44,9 @@ def initFirst() -> None:
 
 def showFirst() -> None:
     for k in first:
-        if k.val == EPS:
+        if k == EPS:
             print('EPS', end=' ')
-        print(k.val, end=' [ ')
+        print(k, end=' [ ')
         for f in first[k]:
             if f == EPS:
                 print('EPS', end=' ')
@@ -78,15 +60,17 @@ def generateFirst() -> None:
     while True:
         unchanged = True  # repeat until no more elements are added to any first set
         for symbol in symbols:
-            if symbol.is_terminal:
-                if symbol.val not in first[symbol]:
+            if symbol in terminals:
+                if symbol not in first[symbol]:
                     unchanged = False
-                first[symbol].add(symbol.val)
-            elif haveDirectEmptyProductionRule(symbol):
+                first[symbol].add(symbol)
+                continue
+            if haveDirectEmptyProductionRule(symbol):
                 if EPS not in first[symbol]:
                     unchanged = False
                 first[symbol].add(EPS)
-            elif not symbol.is_terminal:  # X -> Y1 Y2 ... Yk
+            if symbol in n_terminals:  # X -> Y1 Y2 ... Yk
+                # print(symbol, production_rules[symbol])
                 for production_rule in production_rules[symbol]:
                     all_EPS = True  # if forall i from 1 to k, first(Yi) contains epsilon, then add epsilon to first(X)
                     for right in production_rule.right:  # Yi
@@ -106,7 +90,6 @@ def generateFirst() -> None:
                         if EPS not in first[symbol]:
                             unchanged = False
                         first[symbol].add(EPS)
-
         if unchanged:
             break
 
@@ -115,11 +98,12 @@ def firstOfSymbols(symbol_seq):
     assert len(symbol_seq) > 0
     res = set()
     for symbol in symbol_seq:
-        if symbol.is_terminal:
-            res.add(symbol.val)
-        elif haveDirectEmptyProductionRule(symbol):
+        if symbol in terminals:
+            res.add(symbol)
+            continue
+        if haveDirectEmptyProductionRule(symbol):
             res.add(EPS)
-        elif not symbol.is_terminal:
+        if symbol in n_terminals:
             for production_rule in production_rules[symbol]:
                 all_EPS = True  # if forall i from 1 to k, first(Yi) contains epsilon, then add epsilon to first(X)
                 for right in production_rule.right:  # Yi
@@ -145,20 +129,20 @@ n_terminals = []  # nonterminals
 
 def initProductionRules() -> None:
     for symbol in symbols:
-        if symbol.is_terminal:
+        if symbol in terminals:
             continue
         production_rules[symbol] = set()
 
 
 def showProductionRules() -> None:
     for k in production_rules:
-        print(k.val, end=' -> ')
+        print(k, end=' -> ')
         for i, production_rule in enumerate(production_rules[k]):
             for right in production_rule.right:
-                if right.val == EPS:
+                if right == EPS:
                     print('EPS', end=' ')
                     continue
-                print(right.val, end=' ')
+                print(right, end=' ')
             if i < len(production_rules[k]) - 1:
                 print(' | ', end='')
         print()
@@ -175,11 +159,13 @@ def readSymbols(terminal_file: str, n_terminal_file: str) -> None:
             n_terminals = line.strip().split(' ')
 
     for terminal in terminals:
-        symbols.add(Symbol(terminal, True))
-    symbols.add(Symbol(EPS, True))
+        symbols.add(terminal)
+
+    terminals.append(EPS)
+    symbols.add(EPS)
 
     for n_terminal in n_terminals:
-        symbols.add(Symbol(n_terminal, False))
+        symbols.add(n_terminal)
 
 
 def readProductionRules(production_rule_file: str) -> None:
@@ -192,12 +178,14 @@ def readProductionRules(production_rule_file: str) -> None:
             rights = rights.strip().split('|')
             for right in rights:
                 right = right.strip().split(' ')
-                left_symbol = getSymbol(left)
+                if left in symbols:
+                    left_symbol = left
                 right_symbol = []
                 for r in right:
                     if r == 'EPS':
                         r = ''
-                    r_symbol = getSymbol(r)
+                    if r in symbols:
+                        r_symbol = r
                     right_symbol.append(r_symbol)
                 production_rule = ProductionRule(i, left_symbol, right_symbol)
                 production_rules[left_symbol].add(production_rule)
@@ -207,17 +195,17 @@ class LRProject:
     def __init__(self):
         pass
 
-    def initWithParams(self, left: Symbol, queue: list, out_queue: list, look_forward: Symbol):
+    def initWithParams(self, left: str, queue: list, out_queue: list, look_forward: str):
         self.left = left
-        self.queue = queue  # list of Symbol
-        self.out_queue = out_queue  # list of Symbol
+        self.queue = queue  # list of str
+        self.out_queue = out_queue  # list of str
         self.look_forward = look_forward
         if len(self.out_queue) == 0:
             self.reduce = True  # a reduce project
         else:
             self.reduce = False
 
-    def initWithProductionRule(self, production_rule: ProductionRule, look_forward: Symbol):
+    def initWithProductionRule(self, production_rule: ProductionRule, look_forward: str):
         """
         transfer a production rule to a LRProject
         A -> ·abB
