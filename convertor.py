@@ -1,8 +1,13 @@
 import copy
 
+import xlrd.timemachine
 
 EPS = ''  # epsilon
 END = '$'  # end of a string
+
+
+terminals = []
+n_terminals = []  # nonterminals
 
 
 class ProductionRule:
@@ -18,6 +23,16 @@ class ProductionRule:
         self.id = id
         self.left = left
         self.right = right
+
+    def show(self, end: str):
+        print(self.id, end=' ')
+        print(self.left, end=' -> ')
+        for r in self.right:
+            if r == EPS:
+                print('EPS', end=' ')
+                continue
+            print(r, end=' ')
+        print(end, end='')
 
 
 symbols = set()
@@ -70,7 +85,6 @@ def generateFirst() -> None:
                     unchanged = False
                 first[symbol].add(EPS)
             if symbol in n_terminals:  # X -> Y1 Y2 ... Yk
-                # print(symbol, production_rules[symbol])
                 for production_rule in production_rules[symbol]:
                     all_EPS = True  # if forall i from 1 to k, first(Yi) contains epsilon, then add epsilon to first(X)
                     for right in production_rule.right:  # Yi
@@ -97,34 +111,24 @@ def generateFirst() -> None:
 def firstOfSymbols(symbol_seq):
     assert len(symbol_seq) > 0
     res = set()
+    all_EPS = True
     for symbol in symbol_seq:
-        if symbol in terminals:
-            res.add(symbol)
+        if symbol == END:
             continue
-        if haveDirectEmptyProductionRule(symbol):
-            res.add(EPS)
-        if symbol in n_terminals:
-            for production_rule in production_rules[symbol]:
-                all_EPS = True  # if forall i from 1 to k, first(Yi) contains epsilon, then add epsilon to first(X)
-                for right in production_rule.right:  # Yi
-                    first_right = copy.deepcopy(first[right])  # deepcopy first(Yi) as first_Yi
-                    try:
-                        first_right.remove(EPS)  # remove epsilon from first_Yi
-                    except KeyError:
-                        pass
-                    res = res | first_right
-                    if EPS not in first[right]:  # whether first(Yi) contains epsilon
-                        all_EPS = False
-                        break
+        first_symbol = copy.deepcopy(first[symbol])
+        try:
+            first_symbol.remove(EPS)
+        except KeyError:
+            pass
+        res = res | first_symbol
+        if EPS not in first[symbol]:
+            all_EPS = False
+            break
 
-                if all_EPS:
-                    res.add(EPS)
+    if all_EPS:
+        res.add(EPS)
 
     return res
-
-
-terminals = []
-n_terminals = []  # nonterminals
 
 
 def initProductionRules() -> None:
@@ -136,15 +140,8 @@ def initProductionRules() -> None:
 
 def showProductionRules() -> None:
     for k in production_rules:
-        print(k, end=' -> ')
         for i, production_rule in enumerate(production_rules[k]):
-            for right in production_rule.right:
-                if right == EPS:
-                    print('EPS', end=' ')
-                    continue
-                print(right, end=' ')
-            if i < len(production_rules[k]) - 1:
-                print(' | ', end='')
+            production_rule.show('\n')
         print()
 
 
@@ -171,8 +168,9 @@ def readSymbols(terminal_file: str, n_terminal_file: str) -> None:
 def readProductionRules(production_rule_file: str) -> None:
     initProductionRules()
 
+    id = 0
     with open(production_rule_file) as f:
-        for i, line in enumerate(f.readlines()):
+        for line in f.readlines():
             left, rights = line.strip().split('->')
             left = left.strip()
             rights = rights.strip().split('|')
@@ -187,25 +185,25 @@ def readProductionRules(production_rule_file: str) -> None:
                     if r in symbols:
                         r_symbol = r
                     right_symbol.append(r_symbol)
-                production_rule = ProductionRule(i, left_symbol, right_symbol)
+                production_rule = ProductionRule(id, left_symbol, right_symbol)
                 production_rules[left_symbol].add(production_rule)
+                id += 1
 
 
 class LRProject:
-    def __init__(self):
-        pass
+    def __init__(self, id):
+        self.id = id
 
     def initWithParams(self, left: str, queue: list, out_queue: list, look_forward: str):
         self.left = left
         self.queue = queue  # list of str
         self.out_queue = out_queue  # list of str
         self.look_forward = look_forward
-        if len(self.out_queue) == 0:
-            self.reduce = True  # a reduce project
-        else:
-            self.reduce = False
+        self.reduce = self.checkReduce()  # a reduce project
 
-    def initWithProductionRule(self, production_rule: ProductionRule, look_forward: str):
+        return self
+
+    def initWithProductionRule(self, production_rule: ProductionRule):
         """
         transfer a production rule to a LRProject
         A -> ·abB
@@ -216,8 +214,9 @@ class LRProject:
         self.left = production_rule.left
         self.queue = []
         self.out_queue = production_rule.right
-        self.look_forward = look_forward
-        self.reduce = False  # not a reduce project
+        self.reduce = self.checkReduce()  # not a reduce project
+
+        return self
 
     def nextSymbol(self):
         try:
@@ -232,18 +231,88 @@ class LRProject:
         except IndexError:
             return [EPS]
 
+    def checkReduce(self):
+        if len(self.out_queue) == 0:
+            self.reduce = True
+
+    def nextProject(self):
+        assert not self.reduce
+
+        lr_project = copy.deepcopy(self)
+        symbol = lr_project.out_queue.pop(0)
+        lr_project.queue.append(symbol)
+        lr_project.checkReduce()
+
+        return lr_project
+
+    def __hash__(self):
+        return self.id
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def show(self, end: str):
+        print(self.id, end=' ')
+        print(self.left, end=' -> ')
+        for r in self.queue:
+            print(r, end=' ')
+        print('·', end=' ')
+        for r in self.out_queue:
+            print(r, end=' ')
+        print(end, end='')
+
+
+lr_projects = dict()  # ProductionRule.id -> list of LRProject
+
+
+def getProductionRuleById(id):
+    for k in production_rules:
+        for production_rule in production_rules[k]:
+            if production_rule.id == id:
+                return production_rule
+
+
+def showLRProjects():
+    for k in lr_projects:
+        production_rule = getProductionRuleById(k)
+        production_rule.show('    ')
+        for lr_project in lr_projects[k]:
+            lr_project.show(' ')
+        print()
+
+
+def initLRProjects():
+    id = 0
+    for k in production_rules:
+        for production_rule in production_rules[k]:
+            lr_projects[production_rule.id] = []
+            project = LRProject(id).initWithProductionRule(production_rule)
+            while True:
+                lr_projects[production_rule.id].append(project)
+                id += 1
+                if project.reduce:
+                    break
+                project = project.nextProject()
+                project.id = id
+
 
 class State:
     def __init__(self, id: int):
         self.id = id
-        self.items = set()
+        self.lr_projects = set()
         self.unchanged = True
 
     def addItem(self, lr_project: LRProject) -> bool:
-        if lr_project in self.items:
+        if lr_project in self.lr_projects:
             self.unchanged = False
-        self.items.add(lr_project)
+        self.lr_projects.add(lr_project)
         return self.unchanged
+
+    def __hash__(self):
+        return self.id
+
+    def __eq__(self, other):
+        return self.id == other.id
 
 
 def closure(state: State) -> None:
@@ -263,14 +332,58 @@ def closure(state: State) -> None:
         if unchanged:
             break
 
+    return state
+
+
+def goto(state: State, symbol: str):
+    assert symbol in n_terminals
+    res = set()
+    for item in state.items:
+        if item.reduce:
+            break
+        if item.nextSymbol() == symbol:
+            next_project = item.nextProject()
+            res.add(next_project)
+    return res
+
+
+item_set = set()  # set of State
+
+
+def items():
+    initLRProjects()
+
+    id = 0
+    state = State(id)
+    start_item = lr_projects[0]
+    start_item.look_forward = END
+    state.addItem(start_item)
+    item_set.add(state)
+
+    unchanged = True
+    while True:
+        for item in item_set:
+            for symbol in symbols:
+                new_item = goto(item, symbol)
+                if len(new_item) != 0:
+                    if new_item not in item_set:
+                        item_set.add(new_item)
+                        unchanged = False
+
+            if unchanged:
+                break
+
 
 def main():
     # expand your CFG and update n_terminals.txt and production_rules.txt first
+    # and make sure that the first rule is the start rule
     readSymbols('terminals.txt', 'n_terminals.txt')
     readProductionRules('production_rules.txt')
     # showProductionRules()
     generateFirst()
-    showFirst()
-
+    # showFirst()
+    # items()
+    initLRProjects()
+    showLRProjects()
 
 main()
