@@ -1,6 +1,5 @@
 import copy
 
-import xlrd.timemachine
 
 EPS = ''  # epsilon
 END = '$'  # end of a string
