@@ -1,1 +1,1 @@
-; int ID = INTNUM real ID REALNUM { } if ( ) then else < > = + - * /
+; int ID = INTNUM real ID REALNUM { } if ( ) then else > < = <= >= == + - * /

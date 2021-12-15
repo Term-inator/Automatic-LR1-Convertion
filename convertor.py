@@ -191,19 +191,7 @@ def readProductionRules(production_rule_file: str) -> None:
 
 
 class LRProject:
-    def __init__(self, id):
-        self.id = id
-
-    def initWithParams(self, left: str, queue: list, out_queue: list, look_forward: str):
-        self.left = left
-        self.queue = queue  # list of str
-        self.out_queue = out_queue  # list of str
-        self.look_forward = look_forward
-        self.reduce = self.checkReduce()  # a reduce project
-
-        return self
-
-    def initWithProductionRule(self, production_rule: ProductionRule):
+    def __init__(self, id: int, production_rule: ProductionRule):
         """
         transfer a production rule to a LRProject
         A -> ·abB
@@ -211,12 +199,16 @@ class LRProject:
         queue: []
         out_queue: abB
         """
+        self.id = id
+        self.production_rule_id = production_rule.id
         self.left = production_rule.left
         self.queue = []
-        self.out_queue = production_rule.right
-        self.reduce = self.checkReduce()  # not a reduce project
-
-        return self
+        if production_rule.right == [EPS]:
+            self.out_queue = []
+        else:
+            self.out_queue = production_rule.right
+        self.reduce = False
+        self.checkReduce()  # not a reduce project
 
     def nextSymbol(self):
         try:
@@ -262,7 +254,7 @@ class LRProject:
         print(end, end='')
 
 
-lr_projects = dict()  # ProductionRule.id -> list of LRProject
+lr_projects = set()
 
 
 def getProductionRuleById(id):
@@ -273,22 +265,19 @@ def getProductionRuleById(id):
 
 
 def showLRProjects():
-    for k in lr_projects:
-        production_rule = getProductionRuleById(k)
+    for lr_project in lr_projects:
+        production_rule = getProductionRuleById(lr_project.production_rule_id)
         production_rule.show('    ')
-        for lr_project in lr_projects[k]:
-            lr_project.show(' ')
-        print()
+        lr_project.show('\n')
 
 
 def initLRProjects():
     id = 0
     for k in production_rules:
         for production_rule in production_rules[k]:
-            lr_projects[production_rule.id] = []
-            project = LRProject(id).initWithProductionRule(production_rule)
+            project = LRProject(id, production_rule)
             while True:
-                lr_projects[production_rule.id].append(project)
+                lr_projects.add(project)
                 id += 1
                 if project.reduce:
                     break
@@ -385,5 +374,6 @@ def main():
     # items()
     initLRProjects()
     showLRProjects()
+
 
 main()
