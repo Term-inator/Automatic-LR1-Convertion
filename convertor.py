@@ -210,6 +210,7 @@ class LRProject:
         self.checkReduce()  # not a reduce project
         self.equivalence = set()  # one level identical LRProject.id
         self.goto = dict()  # X -> LRProject.id  goto LRProject.id when the input is X, where X here is nextSymbol()
+        self.look_forward = END
 
     def generateEquivalence(self):
         if self.reduce:
@@ -258,11 +259,24 @@ class LRProject:
             break
 
     def nextSymbol(self):
-        try:
-            return self.out_queue[0]
-        except IndexError:
-            self.reduce = True
-            return None
+        assert not self.reduce
+        return self.out_queue[0]
+
+    def restSymbols(self):
+        assert not self.reduce
+        rest_symbols = copy.deepcopy(self.out_queue)
+        rest_symbols.pop(0)
+        return rest_symbols
+
+    def nextProject(self):
+        assert not self.reduce
+
+        lr_project = copy.deepcopy(self)
+        symbol = lr_project.out_queue.pop(0)
+        lr_project.queue.append(symbol)
+        lr_project.checkReduce()
+
+        return lr_project
 
     def checkReduce(self):
         if len(self.out_queue) == 0:
@@ -295,6 +309,8 @@ def getProductionRuleById(id):
         for production_rule in production_rules[k]:
             if production_rule.id == id:
                 return production_rule
+    print("production rule with id = %d not found" % id)
+    raise Exception
 
 
 def showLRProjects():
@@ -342,20 +358,50 @@ class State:
     def __eq__(self, other):
         return self.id == other.id
 
+    def show(self, end):
+        print(self.id, end=' ')
+        for lr_project in self.lr_projects:
+            lr_project.show('\n')
+        print(end)
+
+
+def identicalState(state_a: State, state_b: State):
+    for lr_project in state_b.lr_projects:
+        if lr_project not in state_a.lr_projects:
+            return False
+    return True
+
+
+def getLRProjectById(id: int):
+    for lr_project in lr_projects:
+        if lr_project.id == id:
+            return lr_project
+    print("LR project with id = %d not found" % id)
+    raise Exception
+
+
+def getLRProjectByProductionRuleId(id: int):
+    for lr_project in lr_projects:
+        if lr_project.production_rule_id == id:
+            return lr_project
+    print("LR project with production_rule_id = %d not found" % id)
+    raise Exception
+
 
 def closure(state: State) -> None:
-    unchanged = True
     while True:
-        for lr_project in state.items:
-            next_symbol = lr_project.nextSymbol()
-            if next_symbol is None:
-                continue
-            for production_rule in production_rules[next_symbol]:
-                new_lr_project = LRProject()
+        item_tmp = set()
+        unchanged = True
+        for lr_project in state.lr_projects:
+            for id in lr_project.equivalence:
+                equivalent_lr_project = getLRProjectById(id)
                 symbol_seq = copy.deepcopy(lr_project.restSymbols())
                 symbol_seq.append(lr_project.look_forward)
-                new_lr_project.initWithProductionRule(production_rule, firstOfSymbols(symbol_seq))
-                unchanged = state.addItem(new_lr_project)
+                equivalent_lr_project.look_forward = firstOfSymbols(symbol_seq)
+                item_tmp.add(equivalent_lr_project)
+
+        for item in item_tmp:
+            unchanged = state.addItem(item)
 
         if unchanged:
             break
@@ -364,48 +410,74 @@ def closure(state: State) -> None:
 
 
 def goto(state: State, symbol: str):
-    assert symbol in n_terminals
     res = set()
-    for item in state.items:
-        if item.reduce:
-            break
-        if item.nextSymbol() == symbol:
-            next_project = item.nextProject()
-            res.add(next_project)
+    for lr_project in state.lr_projects:
+        if lr_project.reduce:
+            continue
+        for next_symbol in lr_project.goto:
+            if next_symbol == symbol:
+                # print(next_symbol)
+                next_project = getLRProjectById(lr_project.goto[next_symbol])
+                res.add(next_project)
     return res
 
 
-item_set = set()  # set of State
+state_set = set()  # set of State
 
 
 def items():
-    initLRProjects()
-
+    global state_set
     id = 0
     state = State(id)
-    start_item = lr_projects[0]
+    id += 1
+    start_item = getLRProjectByProductionRuleId(0)
     start_item.look_forward = END
     state.addItem(start_item)
-    item_set.add(state)
+    state = closure(state)
+    state_set.add(state)
 
-    unchanged = True
     while True:
-        for item in item_set:
+        unchanged = True
+        new_states = set()
+        for state in state_set:
+            state.show('\n')
             for symbol in symbols:
-                new_item = goto(item, symbol)
-                if len(new_item) != 0:
-                    if new_item not in item_set:
-                        item_set.add(new_item)
+                # print(symbol, end=' ')
+                # state.show('\n')
+                new_lr_projects = goto(state, symbol)
+                if len(new_lr_projects) != 0:
+                    new_state = State(id)
+                    id += 1
+                    new_state.lr_projects = copy.deepcopy(new_lr_projects)
+                    new_state = closure(new_state)
+                    # print(symbol)
+                    # new_state.show('\n')
+                    contain = False
+                    for s in state_set:
+                        if identicalState(new_state, s):
+                            contain = True
+                            break
+                    if not contain:
+                        new_states.add(new_state)
                         unchanged = False
 
-            if unchanged:
-                break
+        if unchanged:
+            break
+
+        state_set = state_set | new_states
+
+
+def showSymbols():
+    for symbol in symbols:
+        print(symbol, end=' ')
+    print()
 
 
 def main():
     # expand your CFG and update n_terminals.txt and production_rules.txt first
     # and make sure that the first rule is the start rule
     readSymbols('terminals.txt', 'n_terminals.txt')
+    # showSymbols()
     readProductionRules('production_rules.txt')
     # showProductionRules()
     generateFirst()
@@ -413,7 +485,8 @@ def main():
     initLRProjects()
     generateLRProjects()
     # showLRProjects()
-    # items()
+    items()
+    print(len(state_set))
 
 
 main()
