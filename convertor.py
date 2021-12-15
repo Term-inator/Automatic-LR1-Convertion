@@ -5,7 +5,6 @@ import xlrd.timemachine
 EPS = ''  # epsilon
 END = '$'  # end of a string
 
-
 terminals = []
 n_terminals = []  # nonterminals
 
@@ -209,6 +208,54 @@ class LRProject:
             self.out_queue = production_rule.right
         self.reduce = False
         self.checkReduce()  # not a reduce project
+        self.equivalence = set()  # one level identical LRProject.id
+        self.goto = dict()  # X -> LRProject.id  goto LRProject.id when the input is X, where X here is nextSymbol()
+
+    def generateEquivalence(self):
+        if self.reduce:
+            return
+        next_symbol = self.out_queue[0]
+        if next_symbol in terminals:
+            return
+        if next_symbol in n_terminals:
+            for lr_project in lr_projects:
+                if lr_project.left == next_symbol and lr_project.queue == []:
+                    self.equivalence.add(lr_project.id)
+
+    def generateGoto(self):
+        if self.reduce:
+            return
+        queue = copy.deepcopy(self.queue)
+        out_queue = copy.deepcopy(self.out_queue)
+        next_symbol = out_queue.pop(0)
+        queue.append(next_symbol)
+        for lr_project in lr_projects:
+            if lr_project.left != self.left:
+                continue
+            if len(lr_project.queue) != len(queue):
+                continue
+            else:
+                equal = True
+                for i in range(len(queue)):
+                    if lr_project.queue[i] != queue[i]:
+                        equal = False
+                        break
+
+                if not equal:
+                    continue
+            if len(lr_project.out_queue) != len(out_queue):
+                continue
+            else:
+                equal = True
+                for i in range(len(out_queue)):
+                    if lr_project.out_queue[i] != out_queue[i]:
+                        equal = False
+                        break
+                if not equal:
+                    continue
+
+            self.goto[next_symbol] = lr_project.id
+            break
 
     def nextSymbol(self):
         try:
@@ -217,25 +264,9 @@ class LRProject:
             self.reduce = True
             return None
 
-    def restSymbols(self):
-        try:
-            return self.out_queue[1:]
-        except IndexError:
-            return [EPS]
-
     def checkReduce(self):
         if len(self.out_queue) == 0:
             self.reduce = True
-
-    def nextProject(self):
-        assert not self.reduce
-
-        lr_project = copy.deepcopy(self)
-        symbol = lr_project.out_queue.pop(0)
-        lr_project.queue.append(symbol)
-        lr_project.checkReduce()
-
-        return lr_project
 
     def __hash__(self):
         return self.id
@@ -251,6 +282,8 @@ class LRProject:
         print('·', end=' ')
         for r in self.out_queue:
             print(r, end=' ')
+        print(self.equivalence, end=' ')
+        print(self.goto, end=' ')
         print(end, end='')
 
 
@@ -283,6 +316,12 @@ def initLRProjects():
                     break
                 project = project.nextProject()
                 project.id = id
+
+
+def generateLRProjects():
+    for lr_project in lr_projects:
+        lr_project.generateEquivalence()
+        lr_project.generateGoto()
 
 
 class State:
@@ -371,9 +410,10 @@ def main():
     # showProductionRules()
     generateFirst()
     # showFirst()
-    # items()
     initLRProjects()
-    showLRProjects()
+    generateLRProjects()
+    # showLRProjects()
+    # items()
 
 
 main()
