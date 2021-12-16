@@ -158,6 +158,12 @@ def showProductionRules() -> None:
         print()
 
 
+def showSymbols() -> None:
+    for symbol in symbols:
+        print(symbol, end=' ')
+    print()
+
+
 def readSymbols(terminal_file: str, n_terminal_file: str) -> None:
     global terminals, n_terminals
     with open(terminal_file) as f:
@@ -446,11 +452,15 @@ def closure(state: State) -> State:
     while True:
         project_tmp = set()
         unchanged = True
+        # add equivalent projects
+        # A -> · aB, b
+        # for every terminal t in first(Bb)
+        # add A -> a · B, t to the state
         for lr_project in state.lr_projects:
             for id in lr_project.equivalence:
-                equivalent_lr_project = getLRProjectById(id)
-                symbol_seq = copy.deepcopy(lr_project.restSymbols())
-                symbol_seq.append(lr_project.look_forward)
+                equivalent_lr_project = copy.deepcopy(getLRProjectById(id))
+                symbol_seq = copy.deepcopy(lr_project.restSymbols())  # [B]
+                symbol_seq.append(lr_project.look_forward)  # [B, b]
                 first_set = firstOfSymbols(symbol_seq)
 
                 for new_look_forward in first_set:
@@ -460,7 +470,7 @@ def closure(state: State) -> State:
         for project in project_tmp:
             if project not in state.lr_projects:
                 unchanged = False
-            state.addLRProject(project)
+                state.addLRProject(project)
 
         if unchanged:
             break
@@ -468,15 +478,17 @@ def closure(state: State) -> State:
     return state
 
 
-def goto(state: State, symbol: str):
+def goto(state: State, symbol: str) -> set:
     res = set()
     for lr_project in state.lr_projects:
-        if lr_project.reduce:
+        if lr_project.reduce:  # reduce project do not have goto
             continue
+        # A -> a · Bb  next_symbol = B
+        # so if symbol == B, state will goto a new state,and res is in its attribute lr_project
+        assert len(lr_project.goto) == 1
         for next_symbol in lr_project.goto:
             if next_symbol == symbol:
-                # print(next_symbol)
-                next_project = getLRProjectById(lr_project.goto[next_symbol])
+                next_project = copy.deepcopy(getLRProjectById(lr_project.goto[next_symbol]))
                 res.add(next_project)
     return res
 
@@ -489,6 +501,7 @@ def items():
     id = 0
     state = State(id)
     id += 1
+    # S' -> S, $
     start_item = getLRProjectByProductionRuleId(0)
     start_item.look_forward = END
     state.addLRProject(start_item)
@@ -499,18 +512,15 @@ def items():
         unchanged = True
         new_states = set()
         for state in state_set:
-            # state.show('\n')
             for symbol in symbols:
-                # print(symbol, end=' ')
-                # state.show('\n')
                 new_lr_projects = goto(state, symbol)
                 if len(new_lr_projects) != 0:
                     new_state = State(id)
                     id += 1
                     new_state.lr_projects = copy.deepcopy(new_lr_projects)
                     new_state = closure(new_state)
-                    # print(symbol)
-                    # new_state.show('\n')
+
+                    # whether state_set contains new_state
                     contain = False
                     for s in state_set:
                         if identicalState(new_state, s):
@@ -527,13 +537,7 @@ def items():
         state_set = state_set | new_states
 
 
-def showSymbols():
-    for symbol in symbols:
-        print(symbol, end=' ')
-    print()
-
-
-def showStates():
+def showStates() -> None:
     for state in state_set:
         state.show('\n')
 
@@ -550,8 +554,9 @@ def main():
     generateLRProjects()
     # showLRProjects()
     items()
-    # print(len(state_set))
-    # showStates()
+    print(len(state_set))
+    showStates()
 
 
-main()
+if __name__ == '__main__':
+    main()
