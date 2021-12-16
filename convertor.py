@@ -299,7 +299,8 @@ class LRProject:
         print('·', end=' ')
         for r in self.out_queue:
             print(r, end=' ')
-        print(self.look_forward, end=' ')
+        print("  look_forward: %s" % self.look_forward, end=' ')
+        print("  link_info:", end=' ')
         print(self.equivalence, end=' ')
         print(self.goto, end=' ')
         print(end, end='')
@@ -349,7 +350,7 @@ class State:
         self.id = id
         self.lr_projects = set()
 
-    def addItem(self, lr_project: LRProject) -> bool:
+    def addLRProject(self, lr_project: LRProject) -> bool:
         self.lr_projects.add(lr_project)
 
     def __hash__(self):
@@ -407,7 +408,7 @@ def closure(state: State) -> State:
         for item in item_tmp:
             if item not in state.lr_projects:
                 unchanged = False
-            state.addItem(item)
+            state.addLRProject(item)
 
         if unchanged:
             break
@@ -438,7 +439,7 @@ def items():
     id += 1
     start_item = getLRProjectByProductionRuleId(0)
     start_item.look_forward = END
-    state.addItem(start_item)
+    state.addLRProject(start_item)
     state = closure(state)
     state_set.add(state)
 
