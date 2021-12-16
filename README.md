@@ -1,1 +1,1 @@
-# Automatic-LR1-Convertion
+# Automatic-LR1-Generator
