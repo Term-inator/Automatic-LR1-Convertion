@@ -7,6 +7,10 @@ END = '$'  # end of a string
 terminals = []
 n_terminals = []  # nonterminals
 
+symbols = set()
+production_rules = dict()  # str -> set of ProductionRule
+first = dict()  # str -> set of str
+
 
 class ProductionRule:
     def __init__(self, id: int, left: str, right: list):  # id, str, list of str
@@ -22,7 +26,7 @@ class ProductionRule:
         self.left = left
         self.right = right
 
-    def show(self, end: str):
+    def show(self, end: str) -> None:
         print(self.id, end=' ')
         print(self.left, end=' -> ')
         for r in self.right:
@@ -33,11 +37,8 @@ class ProductionRule:
         print(end, end='')
 
 
-symbols = set()
-production_rules = dict()  # str -> set of ProductionRule
-first = dict()  # str -> set of str
-
-
+########################################################################################################################
+# compute first
 def haveDirectEmptyProductionRule(x: str) -> bool:
     """
     whether x has a production rule x -> epsilon
@@ -69,6 +70,9 @@ def showFirst() -> None:
 
 
 def generateFirst() -> None:
+    """
+    compute first of every symbol and store them in a set called first
+    """
     initFirst()
     while True:
         unchanged = True  # repeat until no more elements are added to any first set
@@ -106,10 +110,15 @@ def generateFirst() -> None:
             break
 
 
-def firstOfSymbols(symbol_seq):
+def firstOfSymbols(symbol_seq: list) -> set:
+    """
+    compute first of symbol_seq based on the set first
+    :param symbol_seq: a list of nonterminals and terminals, for example ABc
+    :return: result of first(ABc)
+    """
     assert len(symbol_seq) > 0
     res = set()
-    if symbol_seq[0] == END:
+    if symbol_seq[0] == END:  # take $ into consideration
         res.add(END)
         return res
 
@@ -133,6 +142,8 @@ def firstOfSymbols(symbol_seq):
     return res
 
 
+########################################################################################################################
+# init symbols and production rules
 def initProductionRules() -> None:
     for symbol in symbols:
         if symbol in terminals:
@@ -142,7 +153,7 @@ def initProductionRules() -> None:
 
 def showProductionRules() -> None:
     for k in production_rules:
-        for i, production_rule in enumerate(production_rules[k]):
+        for production_rule in production_rules[k]:
             production_rule.show('\n')
         print()
 
@@ -192,6 +203,8 @@ def readProductionRules(production_rule_file: str) -> None:
                 id += 1
 
 
+########################################################################################################################
+# compute project(or item) set
 class LRProject:
     def __init__(self, id: int, production_rule: ProductionRule):
         """
@@ -202,7 +215,7 @@ class LRProject:
         out_queue: abB
         """
         self.id = id
-        self.production_rule_id = production_rule.id
+        self.production_rule_id = production_rule.id  # store the production rule id of which generates this project
         self.left = production_rule.left
         self.queue = []
         if production_rule.right == [EPS]:
@@ -211,29 +224,39 @@ class LRProject:
             self.out_queue = production_rule.right
         self.reduce = False
         self.checkReduce()  # not a reduce project
-        self.equivalence = set()  # one level identical LRProject.id
+        self.equivalence = set()  # first level identical LRProject.id
         self.goto = dict()  # X -> LRProject.id  goto LRProject.id when the input is X, where X here is nextSymbol()
-        self.look_forward = END
+        self.look_forward = END  # initialize look_forward as END, will be modified later
 
-    def generateEquivalence(self):
-        if self.reduce:
+    def generateEquivalence(self) -> None:
+        """
+        generate first level identical project
+        id:0 A -> · Ba  equivalence = {1, 3}
+        id:1 B -> · Cb  equivalence = {4}
+        id:3 B -> · ba  equivalence = {}
+        id:4 C -> · c   equivalence = {}
+        """
+        if self.reduce:  # reduce projects do not have equivalent projects
             return
         next_symbol = self.out_queue[0]
         if next_symbol in terminals:
             return
         if next_symbol in n_terminals:
             for lr_project in lr_projects:
+                # equivalent projects are those start with · so their queue is empty
                 if lr_project.left == next_symbol and lr_project.queue == []:
                     self.equivalence.add(lr_project.id)
 
-    def generateGoto(self):
-        if self.reduce:
+    def generateGoto(self) -> None:
+        if self.reduce:  # reduce projects do not have goto projects
             return
-        queue = copy.deepcopy(self.queue)
-        out_queue = copy.deepcopy(self.out_queue)
-        next_symbol = out_queue.pop(0)
-        queue.append(next_symbol)
+        # A -> a · Bb
+        queue = copy.deepcopy(self.queue)  # queue = [a]
+        out_queue = copy.deepcopy(self.out_queue)  # out_queue = [B, b]
+        next_symbol = out_queue.pop(0)  # B
+        queue.append(next_symbol)  # queue = [a, B]  out_queue = [b] => A -> aB · b
         for lr_project in lr_projects:
+            # find lr_project that meet requirements
             if lr_project.left != self.left:
                 continue
             if len(lr_project.queue) != len(queue):
@@ -261,18 +284,33 @@ class LRProject:
             self.goto[next_symbol] = lr_project.id
             break
 
-    def nextSymbol(self):
+    def nextSymbol(self) -> str:
+        """
+        the symbol after ·
+        A -> B · abc
+        next_symbol = a
+        """
         assert not self.reduce
         return self.out_queue[0]
 
-    def restSymbols(self):
+    def restSymbols(self) -> list:
+        """
+        symbols without next_symbol
+        A -> B · abc
+        rest_symbols = [b, c]
+        """
         assert not self.reduce
         rest_symbols = copy.deepcopy(self.out_queue)
         rest_symbols.pop(0)
         return rest_symbols
 
     def nextProject(self):
-        assert not self.reduce
+        """
+        this project: A -> B · abc
+        next project: A -> Ba · bc
+        :return: LRProject
+        """
+        assert not self.reduce  # reduce projects do not have next projects
 
         lr_project = copy.deepcopy(self)
         symbol = lr_project.out_queue.pop(0)
@@ -281,17 +319,21 @@ class LRProject:
 
         return lr_project
 
-    def checkReduce(self):
+    def checkReduce(self) -> None:
+        """
+        whether this is a reduce project
+        """
         if len(self.out_queue) == 0:
             self.reduce = True
 
     def __hash__(self):
+        # TODO hash conflict ?
         return hash(self.id) + hash(self.look_forward)
 
     def __eq__(self, other):
         return self.id == other.id and self.look_forward == other.look_forward
 
-    def show(self, end: str):
+    def show(self, end: str) -> None:
         print(self.id, end=' ')
         print(self.left, end=' -> ')
         for r in self.queue:
@@ -309,7 +351,7 @@ class LRProject:
 lr_projects = set()
 
 
-def getProductionRuleById(id):
+def getProductionRuleById(id) -> ProductionRule:
     for k in production_rules:
         for production_rule in production_rules[k]:
             if production_rule.id == id:
@@ -318,14 +360,20 @@ def getProductionRuleById(id):
     raise Exception
 
 
-def showLRProjects():
+def showLRProjects() -> None:
     for lr_project in lr_projects:
         production_rule = getProductionRuleById(lr_project.production_rule_id)
         production_rule.show('    ')
         lr_project.show('\n')
 
 
-def initLRProjects():
+def initLRProjects() -> None:
+    """
+    for every production rule A -> BC
+    put A -> · BC, A -> B · C, A -> BC · in lr_projects
+    after initialization, set lr_projects will not change
+    use function getLRProjectById(id: int) -> LRProject to get a LRProject from it
+    """
     id = 0
     for k in production_rules:
         for production_rule in production_rules[k]:
@@ -339,7 +387,8 @@ def initLRProjects():
                 project.id = id
 
 
-def generateLRProjects():
+def generateLRProjects() -> None:
+    initLRProjects()
     for lr_project in lr_projects:
         lr_project.generateEquivalence()
         lr_project.generateGoto()
@@ -359,21 +408,25 @@ class State:
     def __eq__(self, other):
         return self.id == other.id
 
-    def show(self, end):
+    def show(self, end) -> None:
         print('I%d' % self.id)
         for lr_project in self.lr_projects:
             lr_project.show('\n')
         print(end)
 
 
-def identicalState(state_a: State, state_b: State):
+def identicalState(state_a: State, state_b: State) -> bool:
+    """
+    if every lr_project in state_a is in state_b
+    then they are regarded as the same
+    """
     for lr_project in state_b.lr_projects:
         if lr_project not in state_a.lr_projects:
             return False
     return True
 
 
-def getLRProjectById(id: int):
+def getLRProjectById(id: int) -> LRProject:
     for lr_project in lr_projects:
         if lr_project.id == id:
             return lr_project
@@ -381,7 +434,7 @@ def getLRProjectById(id: int):
     raise Exception
 
 
-def getLRProjectByProductionRuleId(id: int):
+def getLRProjectByProductionRuleId(id: int) -> LRProject:
     for lr_project in lr_projects:
         if lr_project.production_rule_id == id:
             return lr_project
@@ -391,7 +444,7 @@ def getLRProjectByProductionRuleId(id: int):
 
 def closure(state: State) -> State:
     while True:
-        item_tmp = set()
+        project_tmp = set()
         unchanged = True
         for lr_project in state.lr_projects:
             for id in lr_project.equivalence:
@@ -400,15 +453,14 @@ def closure(state: State) -> State:
                 symbol_seq.append(lr_project.look_forward)
                 first_set = firstOfSymbols(symbol_seq)
 
-                # TODO hash conflict !!!
                 for new_look_forward in first_set:
                     equivalent_lr_project.look_forward = new_look_forward
-                    item_tmp.add(copy.deepcopy(equivalent_lr_project))
+                    project_tmp.add(copy.deepcopy(equivalent_lr_project))
 
-        for item in item_tmp:
-            if item not in state.lr_projects:
+        for project in project_tmp:
+            if project not in state.lr_projects:
                 unchanged = False
-            state.addLRProject(item)
+            state.addLRProject(project)
 
         if unchanged:
             break
@@ -495,12 +547,11 @@ def main():
     # showProductionRules()
     generateFirst()
     # showFirst()
-    initLRProjects()
     generateLRProjects()
     # showLRProjects()
     items()
-    print(len(state_set))
-    showStates()
+    # print(len(state_set))
+    # showStates()
 
 
 main()
