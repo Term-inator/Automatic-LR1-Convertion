@@ -1,3 +1,4 @@
+import data
 import lrStateSet
 
 action_table = []  # list of maps
@@ -17,4 +18,5 @@ def initializeTable() -> None:
 
 
 if __name__ == '__main__':
+    data.readData()
     lrStateSet.generateLRStateSet()
