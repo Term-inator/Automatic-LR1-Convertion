@@ -404,8 +404,9 @@ class State:
     def __init__(self, id: int):
         self.id = id
         self.lr_projects = set()
+        self.goto = dict()  # X -> state.id  goto state.id when the input is X, where X here is nextSymbol()
 
-    def addLRProject(self, lr_project: LRProject) -> bool:
+    def addLRProject(self, lr_project: LRProject) -> None:
         self.lr_projects.add(lr_project)
 
     def __hash__(self):
@@ -418,6 +419,7 @@ class State:
         print('I%d' % self.id)
         for lr_project in self.lr_projects:
             lr_project.show('\n')
+        print(self.goto, end='')
         print(end)
 
 
@@ -449,6 +451,8 @@ def getLRProjectByProductionRuleId(id: int) -> LRProject:
 
 
 def closure(state: State) -> State:
+    if len(state.lr_projects) == 0:
+        return state
     while True:
         project_tmp = set()
         unchanged = True
@@ -529,6 +533,7 @@ def items():
                             break
                     if not contain:
                         new_states.add(new_state)
+                        state.goto[symbol] = new_state.id
                         unchanged = False
 
         if unchanged:
@@ -542,7 +547,7 @@ def showStates() -> None:
         state.show('\n')
 
 
-def main():
+def generateLRStateSet():
     # expand your CFG and update n_terminals.txt and production_rules.txt first
     # and make sure that the first rule is the start rule
     readSymbols('terminals.txt', 'n_terminals.txt')
@@ -559,4 +564,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    generateLRStateSet()
