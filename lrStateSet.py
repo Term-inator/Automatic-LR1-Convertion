@@ -542,6 +542,14 @@ def items():
         state_set = state_set | new_states
 
 
+def getStateById(id: int) -> State:
+    for state in state_set:
+        if state.id == id:
+            return state
+    print("state with id = %d not found" % id)
+    raise Exception
+
+
 def showStates() -> None:
     for state in state_set:
         state.show('\n')
