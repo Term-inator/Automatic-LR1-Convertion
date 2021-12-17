@@ -9,6 +9,8 @@ def initializeActionTable() -> None:
     for i in range(lrStateSet.length):
         d = dict()
         for terminal in data.terminals:
+            if terminal == data.EPS:
+                continue
             d[terminal] = 0
         d[data.END] = 0
         action_table.append(d)
@@ -32,10 +34,13 @@ def generateAnalyzeTable() -> None:
     for state in lrStateSet.state_set:
         for lr_project in state.lr_projects:
             if lr_project.reduce:
-                action_table[state.id][lr_project.look_forward] = ('r', lr_project.production_rule_id)
+                if lr_project.production_rule_id == 0:
+                    action_table[state.id][lr_project.look_forward] = 'acc'
+                else:
+                    action_table[state.id][lr_project.look_forward] = 'r' + str(lr_project.production_rule_id)
         for symbol in state.goto:
             if symbol in data.terminals:
-                action_table[state.id][symbol] = ('s', state.goto[symbol])
+                action_table[state.id][symbol] = 's' + str(state.goto[symbol])
                 continue
             if symbol in data.n_terminals:
                 goto_table[state.id][symbol] = state.goto[symbol]
@@ -43,7 +48,7 @@ def generateAnalyzeTable() -> None:
 
 
 def showAnalyzeTable() -> None:
-    print('  ', end='')
+    print('I', end=' ')
     for terminal in data.terminals:
         print(terminal, end=' ')
     for n_terminal in data.n_terminals:
@@ -52,6 +57,8 @@ def showAnalyzeTable() -> None:
     for i in range(lrStateSet.length):
         print(i, end=' ')
         for terminal in data.terminals:
+            if terminal == data.EPS:
+                continue
             print(action_table[i][terminal], end=' ')
         print(action_table[i][data.END], end=' ')
         for n_terminal in data.n_terminals:
@@ -62,6 +69,6 @@ def showAnalyzeTable() -> None:
 if __name__ == '__main__':
     data.readData()
     lrStateSet.generateLRStateSet()
-    lrStateSet.showStates()
-    # generateAnalyzeTable()
-    # showAnalyzeTable()
+    # lrStateSet.showStates()
+    generateAnalyzeTable()
+    showAnalyzeTable()

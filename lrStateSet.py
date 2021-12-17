@@ -454,3 +454,9 @@ def generateLRStateSet():
     # showStates()
     global length
     length = len(state_set)
+
+
+if __name__ == '__main__':
+    data.readData()
+    generateLRStateSet()
+    showStates()
