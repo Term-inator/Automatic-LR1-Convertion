@@ -385,6 +385,7 @@ def goto(state: State, symbol: str) -> set:
 
 
 state_set = set()  # set of State
+length = 0  # len(state_set)
 
 
 def items():
@@ -407,7 +408,6 @@ def items():
                 new_lr_projects = goto(state, symbol)
                 if len(new_lr_projects) != 0:
                     new_state = State(id)
-                    id += 1
                     new_state.lr_projects = copy.deepcopy(new_lr_projects)
                     new_state = closure(new_state)
 
@@ -415,12 +415,13 @@ def items():
                     contain = False
                     for s in state_set:
                         if identicalState(new_state, s):
+                            state.goto[symbol] = s.id
                             contain = True
-                            id -= 1
                             break
                     if not contain:
                         new_states.add(new_state)
                         state.goto[symbol] = new_state.id
+                        id += 1
                         unchanged = False
 
         if unchanged:
@@ -450,5 +451,6 @@ def generateLRStateSet():
     generateLRProjects()
     # showLRProjects()
     items()
-    print(len(state_set))
-    showStates()
+    # showStates()
+    global length
+    length = len(state_set)
