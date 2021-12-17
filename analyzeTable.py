@@ -40,17 +40,20 @@ def generateAnalyzeTable() -> None:
                     action_table[state.id][lr_project.look_forward] = 'r' + str(lr_project.production_rule_id)
         for symbol in state.goto:
             if symbol in data.terminals:
+                if symbol == data.EPS:
+                    continue
                 action_table[state.id][symbol] = 's' + str(state.goto[symbol])
-                continue
-            if symbol in data.n_terminals:
+            elif symbol in data.n_terminals:
                 goto_table[state.id][symbol] = state.goto[symbol]
-                continue
 
 
 def showAnalyzeTable() -> None:
     print('I', end=' ')
     for terminal in data.terminals:
+        if terminal == data.EPS:
+            continue
         print(terminal, end=' ')
+    print(data.END, end=' ')
     for n_terminal in data.n_terminals:
         print(n_terminal, end=' ')
     print()

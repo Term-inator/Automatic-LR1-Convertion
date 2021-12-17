@@ -459,4 +459,4 @@ def generateLRStateSet():
 if __name__ == '__main__':
     data.readData()
     generateLRStateSet()
-    showStates()
+    # showStates()
