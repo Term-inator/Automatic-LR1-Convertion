@@ -91,7 +91,6 @@ def showProductionRules() -> None:
     for k in production_rules:
         for production_rule in production_rules[k]:
             production_rule.show('\n')
-        print()
 
 
 def showSymbols() -> None:
@@ -113,7 +112,13 @@ def haveDirectEmptyProductionRule(x: str) -> bool:
 
 
 def readData() -> None:
-    readSymbols('terminals.txt', 'n_terminals.txt')
+    readSymbols('./data/terminals.txt', './data/n_terminals.txt')
     # showSymbols()
-    readProductionRules('production_rules.txt')
+    readProductionRules('./data/production_rules.txt')
     # showProductionRules()
+
+
+if __name__ == '__main__':
+    readData()
+    showProductionRules()
+
