@@ -380,6 +380,7 @@ def goto(state: State, symbol: str) -> set:
         for next_symbol in lr_project.goto:
             if next_symbol == symbol:
                 next_project = copy.deepcopy(getLRProjectById(lr_project.goto[next_symbol]))
+                next_project.look_forward = lr_project.look_forward
                 res.add(next_project)
     return res
 
